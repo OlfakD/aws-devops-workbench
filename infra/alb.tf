@@ -2,7 +2,7 @@ resource "aws_lb" "app" {
   name               = "${var.project_name}-alb"
   internal           = false
   load_balancer_type = "application"
-  subnets            = [for s in aws_subnet.public : s.value.id]
+  subnets            = [for s in aws_subnet.public : s.id]
   security_groups    = [aws_security_group.alb_sg.id]
   tags               = { Name = "${var.project_name}-alb" }
 }

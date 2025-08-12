@@ -2,6 +2,15 @@ data "aws_availability_zones" "this" {
   state = "available"
 }
 
+locals {
+  # Take first two AZ names
+  azs = slice(data.aws_availability_zones.this.names, 0, 2)
+
+  # Build maps keyed as "0" and "1", each with its CIDR and AZ
+  public_map  = { for idx, cidr in var.public_subnets : tostring(idx) => { cidr = cidr, az = local.azs[idx] } }
+  private_map = { for idx, cidr in var.private_subnets : tostring(idx) => { cidr = cidr, az = local.azs[idx] } }
+}
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -11,20 +20,20 @@ resource "aws_vpc" "this" {
 
 # Public subnets
 resource "aws_subnet" "public" {
-  for_each                = toset([0, 1])
+  for_each                = local.public_map
   vpc_id                  = aws_vpc.this.id
-  cidr_block              = var.public_subnets[each.key]
-  availability_zone       = data.aws_availability_zones.this.names[each.key]
+  cidr_block              = each.value.cidr
+  availability_zone       = each.value.az
   map_public_ip_on_launch = true
   tags                    = { Name = "${var.project_name}-public-${each.key}" }
 }
 
 # Private subnets
 resource "aws_subnet" "private" {
-  for_each          = toset([0, 1])
+  for_each          = local.private_map
   vpc_id            = aws_vpc.this.id
-  cidr_block        = var.private_subnets[each.key]
-  availability_zone = data.aws_availability_zones.this.names[each.key]
+  cidr_block        = each.value.cidr
+  availability_zone = each.value.az
   tags              = { Name = "${var.project_name}-private-${each.key}" }
 }
 
@@ -33,7 +42,7 @@ resource "aws_internet_gateway" "igw" {
   tags   = { Name = "${var.project_name}-igw" }
 }
 
-# One NAT in AZ0 to save cost
+# One NAT in the first public subnet ("0")
 resource "aws_eip" "nat" {
   domain = "vpc"
   tags   = { Name = "${var.project_name}-nat-eip" }
