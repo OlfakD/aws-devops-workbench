@@ -32,7 +32,7 @@ resource "aws_launch_template" "app" {
   lifecycle { create_before_destroy = true }
   tag_specifications {
     resource_type = "instance"
-    tags = { Name = "${var.project_name}-instance" }
+    tags          = { Name = "${var.project_name}-instance" }
   }
 }
 
